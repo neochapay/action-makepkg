@@ -1,0 +1,48 @@
+name: 'test'
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: build
+  cancel-in-progress: true
+
+jobs:
+  pkgbuild:
+    permissions:
+      contents: write
+      packages: write
+    strategy:
+      matrix:
+        pkgbuild: ["PKGBUILD.any", "PKGBUILD.multi"]
+        arch: [aarch64, x86_64]
+        branch: [stable, testing, unstable]
+        runs-on: [buildjet-4vcpu-ubuntu-2204-arm, ubuntu-latest]
+    runs-on: ${{ matrix.runs-on }}
+    container:
+      image: docker://manjarolinux/build:latest
+    steps:
+      - name: check out repo for action code
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
+      - id: version
+        uses: manjaro-contrib/action-pkgbuild-info@main
+        with:
+          pkgbuild: ${{ matrix.pkgbuild }}
+      - name: pkgbuild
+        if: steps.skip.outputs.skip != 'true'
+        uses: ./
+        with:
+          pkgbuild: ${{ matrix.pkgbuild }}
+          dispatch-token: ${{ secrets.DISPATCH }}
+          branch: ${{ matrix.branch }}
+          release: ${{ matrix.branch }}-${{ steps.version.outputs.version }}
+          additional_gpg: >
+            8D8E31AFC32428A6
+            8D8E31AFC32428A6
+          additional_repo: >
+            [manjaro-sway]\n
+            SigLevel = Optional TrustAll\n
+            Server = https://packages.manjaro-sway.download/\$arch\n

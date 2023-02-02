@@ -1,0 +1,102 @@
+name: 'manjaro makepkg action'
+description: 'builds packages for manjaro linux'
+
+inputs:
+  pkgbuild:
+    description: 'path of the PKGBUILD file'
+    default: "PKGBUILD"
+    required: false
+  dispatch-token:
+    description: token required for dispatch
+    required: false
+  dispatch-target:
+    description: repository managing your packages
+    required: false
+  branch:
+    description: manjaro branch to publish against
+    required: false
+    default: "stable"
+  additional_gpg:
+    description: 'key ids to import before building'
+    required: false
+    default: ""
+  additional_repo:
+    description: 'repository to place infront of other pacman repositories'
+    required: false
+  gpg_secret_base64:
+    description: 'base64 encoded key used to sign the package with'
+    required: false
+  release:
+    description: name of the release to be created
+    required: true
+
+outputs:
+  filename:
+    description: "name of the result file"
+    value: ${{ steps.filename.outputs.name }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: check out repo
+      uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
+      with:
+        fetch-depth: 0
+    - name: set up gpg
+      shell: bash
+      if: ${{ inputs.additional_gpg != '' }}
+      run: |
+        for key in ${{ inputs.additional_gpg }}
+        do
+          sudo -u builder gpg --keyserver keys.openpgp.org --recv-key $key
+          pacman-key --keyserver keys.openpgp.org --recv-keys $key
+        done
+    - name: set up additional repos
+      shell: bash
+      if: ${{ inputs.additional_repo != '' }}
+      run: |
+        sed -i '/^\[core\]/i \Include = /etc/pacman.d/additional_repo\n' /etc/pacman.conf
+        printf "${{ inputs.additional_repo }}" >/etc/pacman.d/additional_repo
+        cat /etc/pacman.d/additional_repo
+    - name: set up pacman for target branch
+      shell: bash
+      run: |
+        pacman-mirrors --api --set-branch "${{ inputs.branch }}"
+        sudo pacman -Sy --noconfirm --needed base-devel github-cli
+    - name: build
+      shell: bash
+      run: |
+        mkdir -p "${PWD}/artifacts"
+        mkdir -p "${PWD}/build"
+        pacman -Syy
+        chown builder $PWD
+        sudo -u builder makepkg -fsAc --noconfirm --noprogressbar -p ${{ inputs.pkgbuild }}
+        cp *.pkg.tar.zst* $PWD/artifacts/
+    - name: sign
+      shell: bash
+      if: ${{ inputs.gpg_secret_base64 != '' }}
+      run: |
+        # import signing key (no passphrase)
+        cat <(echo -e "${{ inputs.gpg_secret_base64 }}" | base64 --decode) | gpg --batch --import
+
+        for file in ./artifacts/*.pkg.tar.zst; do 
+          gpg --pinentry-mode loopback --detach-sign ${file}
+        done
+    - name: release
+      shell: bash
+      run: |
+        echo ${{ github.token }} | gh auth login --with-token
+        gh release create ${{ inputs.release }} --repo ${{ github.repository }} || echo "release already exists"
+        gh release upload ${{ inputs.release }} --repo ${{ github.repository }} --clobber ./artifacts/*.zst
+
+        if ls ./artifacts/*.sig >/dev/null 2>&1; then 
+          gh release upload ${{ inputs.release }} --repo ${{ github.repository }} --clobber ./artifacts/*.sig
+        fi
+    - name: dispatch
+      if: ${{ inputs.dispatch-token != '' && inputs.dispatch-target != '' }}
+      uses: peter-evans/repository-dispatch@26b39ed245ab8f31526069329e112ab2fb224588 # v2
+      with:
+        token: ${{ inputs.dispatch-token }}
+        repository: ${{ inputs.dispatch-target }}
+        event-type: package_update
+        client-payload: '{ "repository": "${{ github.repository }}", "release": "${{ inputs.release }}", "branch": "${{ inputs.branch }}" }'
