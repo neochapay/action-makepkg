@@ -30,18 +30,14 @@ inputs:
     description: name of the release to be created
     required: true
 
-outputs:
-  filename:
-    description: "name of the result file"
-    value: ${{ steps.filename.outputs.name }}
-
 runs:
   using: "composite"
   steps:
+    - name: install some tools
+      shell: bash
+      run: sudo pacman -Sy --noconfirm --needed base-devel github-cli
     - name: check out repo
       uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
-      with:
-        fetch-depth: 0
     - name: set up gpg
       shell: bash
       if: ${{ inputs.additional_gpg != '' }}
@@ -62,7 +58,6 @@ runs:
       shell: bash
       run: |
         pacman-mirrors --api --set-branch "${{ inputs.branch }}"
-        sudo pacman -Sy --noconfirm --needed base-devel github-cli
     - name: build
       shell: bash
       run: |
