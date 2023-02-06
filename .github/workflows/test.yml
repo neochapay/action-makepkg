@@ -44,4 +44,4 @@ jobs:
           additional_repo: >
             [manjaro-sway]\n
             SigLevel = Optional TrustAll\n
-            Server = https://packages.manjaro-sway.download/\$arch\n
+            Server = https://pkg.manjaro-sway.download/stable/\$arch\n
