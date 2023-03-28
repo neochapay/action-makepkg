@@ -41,11 +41,13 @@ runs:
     - name: set up gpg
       shell: bash
       if: ${{ inputs.additional_gpg != '' }}
+      env:
+        KEYSERVER: keyserver.ubuntu.com
       run: |
         for key in ${{ inputs.additional_gpg }}
         do
-          sudo -u builder gpg --keyserver keys.openpgp.org --recv-key $key
-          pacman-key --keyserver keys.openpgp.org --recv-keys $key
+          sudo -u builder gpg --keyserver "$KEYSERVER" --recv-key $key
+          pacman-key --keyserver "$KEYSERVER" --recv-keys $key
         done
     - name: set up additional repos
       shell: bash
