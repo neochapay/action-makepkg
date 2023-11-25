@@ -55,6 +55,8 @@ runs:
       run: |
         sed -i '/^\[core\]/i \Include = /etc/pacman.d/additional_repo\n' /etc/pacman.conf
         printf "${{ inputs.additional_repo }}" >/etc/pacman.d/additional_repo
+        rm -R /var/lib/pacman/sync/
+        pacman -Syuf
         cat /etc/pacman.d/* || echo "error cat-ing pacman.d"
         cat /etc/pacman.conf || echo "error cat-ing pacman.conf"
     - name: set up pacman for target branch
