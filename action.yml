@@ -53,9 +53,10 @@ runs:
       shell: bash
       if: ${{ inputs.additional_repo != '' }}
       run: |
+        pacman -Syyu
         sed -i '/^\[core\]/i \Include = /etc/pacman.d/additional_repo\n' /etc/pacman.conf
         printf "${{ inputs.additional_repo }}" >/etc/pacman.d/additional_repo
-        cat /etc/pacman.conf || echo "error cat-ing pacman.conf"
+        pacman -Syyu
     - name: set up pacman for target branch
       shell: bash
       run: |
