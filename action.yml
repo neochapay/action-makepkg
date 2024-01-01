@@ -29,6 +29,9 @@ inputs:
   release:
     description: name of the release to be created
     required: true
+  passphrase:
+    description: passphrase of gpg
+    required: false
 
 runs:
   using: "composite"
@@ -76,7 +79,11 @@ runs:
         cat <(echo -e "${{ inputs.gpg_secret_base64 }}" | base64 --decode) | gpg --batch --import
 
         for file in ./artifacts/*.pkg.tar.zst; do 
-          gpg --pinentry-mode loopback --detach-sign ${file}
+          if [ -z ${{ inputs.passphrase }} ]; then
+            gpg --pinentry-mode loopback --detach-sign ${file}
+          else
+            gpg --pinentry-mode loopback --detach-sign --passphrase ${{ inputs.passphrase }} ${file}
+          fi
         done
     - name: release
       shell: bash
