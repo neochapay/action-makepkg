@@ -58,6 +58,14 @@ runs:
       run: |
         sed -i '/^\[core\]/i \Include = /etc/pacman.d/additional_repo\n' /etc/pacman.conf
         printf "${{ inputs.additional_repo }}" >/etc/pacman.d/additional_repo
+    - name: set up pacman for multilib repository
+      shell: bash
+      run: |
+        if [ $(uname -m) == x86_64 ]; then
+          sed -i "/\[multilib\]/,/Include/"'s/^#//' /etc/pacman.conf
+        else
+          exit 0
+        fi
     - name: set up pacman for target branch
       shell: bash
       run: |
