@@ -76,6 +76,7 @@ runs:
         mkdir -p "${PWD}/artifacts"
         mkdir -p "${PWD}/build"
         pacman -Syy
+        pacman -S pacman
         chown builder $PWD
         sudo -u builder makepkg -fsAc --noconfirm --noprogressbar -p ${{ inputs.pkgbuild }}
         cp *.pkg.tar.zst* $PWD/artifacts/
