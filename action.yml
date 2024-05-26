@@ -70,7 +70,7 @@ runs:
       shell: bash
       run: |
         pacman-mirrors --api --set-branch "${{ inputs.branch }}"
-        pacman -Syu
+        pacman -Syu --noconfirm
     - name: build
       shell: bash
       run: |
