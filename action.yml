@@ -70,12 +70,12 @@ runs:
       shell: bash
       run: |
         pacman-mirrors --api --set-branch "${{ inputs.branch }}"
+        pacman -Syu
     - name: build
       shell: bash
       run: |
         mkdir -p "${PWD}/artifacts"
         mkdir -p "${PWD}/build"
-        pacman -Syy
         pacman -S --noconfirm pacman
         chown builder $PWD
         sudo -u builder makepkg -fsAc --noconfirm --noprogressbar -p ${{ inputs.pkgbuild }}
