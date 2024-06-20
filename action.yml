@@ -69,7 +69,7 @@ runs:
     - name: set up pacman for target branch
       shell: bash
       run: |
-        pacman-mirrors --api --set-branch "${{ inputs.branch }}"
+        pacman-mirrors --geoip --api --set-branch "${{ inputs.branch }}"
         pacman -Syu --noconfirm
     - name: build
       shell: bash
