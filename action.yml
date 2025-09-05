@@ -2,6 +2,9 @@ name: 'manjaro makepkg action'
 description: 'builds packages for manjaro linux'
 
 inputs:
+  pkgbuild_url:
+    description: 'url of PKGBUILD for download from outside'
+    required: false
   pkgbuild:
     description: 'path of the PKGBUILD file'
     default: "PKGBUILD"
@@ -71,13 +74,18 @@ runs:
       run: |
         pacman-mirrors --geoip --api --set-branch "${{ inputs.branch }}"
         pacman -Syyu --noconfirm
+    - name: download PKGBUILD from outside
+      if: ${{ inputs.pkgbuild_url != '' }}
+      shell: bash
+      run: |
+        curl -O ${{ inputs.pkgbuild_url }}
     - name: build
       shell: bash
       run: |
         mkdir -p "${PWD}/artifacts"
         mkdir -p "${PWD}/build"
         pacman -S --noconfirm pacman
-        chown builder $PWD
+        chown builder $PWD -R
         sudo -u builder makepkg -fsAc --noconfirm --noprogressbar -p ${{ inputs.pkgbuild }}
         cp *.pkg.tar.zst* $PWD/artifacts/
     - name: sign
@@ -94,16 +102,11 @@ runs:
             gpg --pinentry-mode loopback --detach-sign --passphrase ${{ inputs.passphrase }} ${file}
           fi
         done
-    - name: release
-      shell: bash
-      run: |
-        echo ${{ github.token }} | gh auth login --with-token
-        gh release create ${{ inputs.release }} --repo ${{ github.repository }} || echo "release already exists"
-        gh release upload ${{ inputs.release }} --repo ${{ github.repository }} --clobber ./artifacts/*.zst
-
-        if ls ./artifacts/*.sig >/dev/null 2>&1; then 
-          gh release upload ${{ inputs.release }} --repo ${{ github.repository }} --clobber ./artifacts/*.sig
-        fi
+    - name: upload
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.release }}_${{ runner.arch }}
+        path: artifacts/*.pkg.tar.zst
     - name: dispatch
       if: ${{ inputs.dispatch-token != '' && inputs.dispatch-target != '' }}
       uses: peter-evans/repository-dispatch@ff45666b9427631e3450c54a1bcbee4d9ff4d7c0 # v3
