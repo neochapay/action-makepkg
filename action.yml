@@ -1,14 +1,10 @@
-name: 'manjaro makepkg action'
-description: 'builds packages for manjaro linux'
+name: 'NemoMobile makepkg action'
+description: 'builds packages for nemomobile linux'
 
 inputs:
-  pkgbuild_url:
-    description: 'url of PKGBUILD for download from outside'
-    required: false
-  pkgbuild:
-    description: 'path of the PKGBUILD file'
-    default: "PKGBUILD"
-    required: false
+  package:
+    description: 'package name for build'
+    required: true
   dispatch-token:
     description: token required for dispatch
     required: false
@@ -39,6 +35,12 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: check out repo for action code
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+    - name: Extract branch name
+      id: extract_branch
+      shell: bash
+      run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
     - name: install some tools
       shell: bash
       run: sudo pacman -Sy --noconfirm --needed base-devel github-cli
@@ -55,6 +57,13 @@ runs:
           sudo -u builder gpg --keyserver "$KEYSERVER" --recv-key $key
           pacman-key --keyserver "$KEYSERVER" --recv-keys $key
         done
+    - name: set up nemo repo
+      shell: bash
+      run: |
+        sed -i '/^\[core\]/i \Include = /etc/pacman.d/additional_repo\n' /etc/pacman.conf
+        printf "[nemomobile]\n
+            SigLevel = Optional TrustAll\n
+            Server = https://img.nemomobile.net/manjaro/${{ matrix.branch }}/\$arch\n" >/etc/pacman.d/additional_repo
     - name: set up additional repos
       shell: bash
       if: ${{ inputs.additional_repo != '' }}
@@ -74,11 +83,10 @@ runs:
       run: |
         pacman-mirrors --geoip --api --set-branch "${{ inputs.branch }}"
         pacman -Syyu --noconfirm
-    - name: download PKGBUILD from outside
-      if: ${{ inputs.pkgbuild_url != '' }}
+    - name: download PKGBUILD from nemo-packaging nemo repo
       shell: bash
       run: |
-        curl -O ${{ inputs.pkgbuild_url }}
+        curl -O https://raw.githubusercontent.com/nemomobile-ux/nemo-packaging/refs/heads/master/${{ inputs.pkgname }}/PKGBUILD
     - name: build
       shell: bash
       run: |
@@ -86,7 +94,7 @@ runs:
         mkdir -p "${PWD}/build"
         pacman -S --noconfirm pacman
         chown builder $PWD -R
-        sudo -u builder makepkg -fsAc --noconfirm --noprogressbar -p ${{ inputs.pkgbuild }}
+        sudo -u builder makepkg -fsAc --noconfirm --noprogressbar -p PKGBUILD
         cp *.pkg.tar.zst* $PWD/artifacts/
     - name: sign
       shell: bash
